@@ -1,1 +1,2 @@
 pgvector/pgvector:0.8.2-pg18-trixie
+redis:7-alpine
