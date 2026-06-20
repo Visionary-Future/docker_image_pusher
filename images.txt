@@ -4,4 +4,3 @@
 --platform linux/arm64 alpine:3.20
 vaultwarden/server:latest
 jellyfin/jellyfin:latest
-xhongc/music_tag_web:latest
