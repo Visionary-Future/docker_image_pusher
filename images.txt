@@ -3,3 +3,4 @@
 --platform linux/arm64 golang:1.26.2-alpine
 --platform linux/arm64 alpine:3.20
 vaultwarden/server:latest
+jellyfin/jellyfin:latest
