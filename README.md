@@ -24,8 +24,7 @@ B站，抖音，Youtube全网同名，转载请注明作者<br>
 
 ### 手动编辑
 
-
-### 配置阿里云
+#### 配置阿里云
 登录阿里云容器镜像服务<br>
 https://cr.console.aliyun.com/<br>
 启用个人实例，创建一个命名空间（**ALIYUN_NAME_SPACE**）
@@ -39,7 +38,7 @@ https://cr.console.aliyun.com/<br>
 ![](/doc/用户名密码.png)
 
 
-### Fork本项目
+#### Fork本项目
 Fork本项目<br>
 #### 启动Action
 进入您自己的项目，点击Action，启用Github Action功能<br>
@@ -50,7 +49,7 @@ Fork本项目<br>
 ALIYUN_NAME_SPACE,ALIYUN_REGISTRY_USER，ALIYUN_REGISTRY_PASSWORD，ALIYUN_REGISTRY<br>
 配置成环境变量
 
-### 添加镜像
+#### 添加镜像
 打开images.txt文件，添加你想要的镜像 
 可以加tag，也可以不用(默认latest)<br>
 可添加 --platform=xxxxx 的参数指定镜像架构<br>
@@ -59,7 +58,7 @@ ALIYUN_NAME_SPACE,ALIYUN_REGISTRY_USER，ALIYUN_REGISTRY_PASSWORD，ALIYUN_REGIS
 ![](doc/images.png)
 文件提交后，自动进入Github Action构建
 
-### 使用镜像
+#### 使用镜像
 回到阿里云，镜像仓库，点击任意镜像，可查看镜像状态。(可以改成公开，拉取镜像免登录)
 ![](doc/开始使用.png)
 
@@ -71,12 +70,12 @@ registry.cn-hangzhou.aliyuncs.com 即 ALIYUN_REGISTRY(阿里云仓库地址)<br>
 shrimp-images 即 ALIYUN_NAME_SPACE(阿里云命名空间)<br>
 alpine 即 阿里云中显示的镜像名<br>
 
-### 多架构
+#### 多架构
 需要在images.txt中用 --platform=xxxxx手动指定镜像架构
 指定后的架构会以前缀的形式放在镜像名字前面
 ![](doc/多架构.png)
 
-### 镜像重名
+#### 镜像重名
 程序自动判断是否存在名称相同, 但是属于不同命名空间的情况。
 如果存在，会把命名空间作为前缀加在镜像名称前。
 例如:
@@ -86,7 +85,7 @@ xiaoyaliu/alist
 ```
 ![](doc/镜像重名.png)
 
-### 定时执行
+#### 定时执行
 修改/.github/workflows/docker.yaml文件
 添加 schedule即可定时执行(此处cron使用UTC时区)
 ![](doc/定时执行.png)
