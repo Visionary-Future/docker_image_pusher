@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docker Image Pusher - 镜像管理</title>
+<style>
+  :root {
+    --bg: #f5f5f5;
+    --card-bg: #fff;
+    --text: #1a1a1a;
+    --text-secondary: #666;
+    --border: #e0e0e0;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --danger: #dc2626;
+    --danger-hover: #b91c1c;
+    --success: #16a34a;
+    --radius: 8px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+  }
+  .header h1 { font-size: 1.5rem; font-weight: 700; }
+  .header .subtitle { font-size: 0.85rem; color: var(--text-secondary); }
+
+  /* Cards */
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px; flex-wrap: wrap; gap: 8px;
+  }
+  .card-header h2 { font-size: 1.1rem; font-weight: 600; }
+
+  /* Forms */
+  input, select, button {
+    font-family: inherit; font-size: 0.9rem;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+
+  button {
+    cursor: pointer; border: none;
+    font-weight: 500;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover { background: var(--danger-hover); }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-outline:hover { background: #f0f0f0; }
+  .btn-sm { padding: 4px 10px; font-size: 0.8rem; }
+  .btn-xs { padding: 2px 8px; font-size: 0.75rem; }
+
+  .add-form {
+    display: grid;
+    grid-template-columns: 130px 1fr 100px 80px;
+    gap: 8px;
+    align-items: end;
+  }
+  @media (max-width: 640px) {
+    .add-form { grid-template-columns: 1fr 1fr; }
+    .add-form button { grid-column: span 2; }
+  }
+
+  /* File bar */
+  .file-bar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .file-status {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.85rem; color: var(--text-secondary);
+  }
+  .file-dot {
+    width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+  }
+  .file-dot.loaded { background: var(--success); }
+  .file-dot.modified { background: var(--warning); }
+  .file-dot.empty { background: #ccc; }
+
+  /* Modified indicator */
+  .modified-badge {
+    display: inline-block; background: #fef3c7; color: #92400e;
+    font-size: 0.7rem; padding: 2px 8px; border-radius: 10px;
+    font-weight: 600;
+  }
+
+  /* Image List */
+  .image-list { list-style: none; }
+  .image-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .image-item:last-child { border-bottom: none; }
+  .image-item:hover { background: #fafafa; }
+  .image-item.commented { opacity: 0.45; }
+  .image-item.commented .image-name { text-decoration: line-through; }
+
+  .image-index { color: var(--text-secondary); font-size: 0.8rem; min-width: 24px; }
+  .image-platform {
+    font-size: 0.75rem; background: #f0f0f0; padding: 2px 8px;
+    border-radius: 12px; font-family: monospace; white-space: nowrap;
+  }
+  .image-name {
+    flex: 1; font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.9rem; word-break: break-all;
+  }
+  .image-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; margin-bottom: 16px; }
+  .tab {
+    padding: 6px 16px; border: 1px solid var(--border); background: #fafafa;
+    cursor: pointer; font-size: 0.85rem; font-weight: 500;
+  }
+  .tab:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+  .tab:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+  .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* Preview */
+  .preview {
+    background: #1e1e1e; color: #d4d4d4;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.85rem; padding: 16px;
+    border-radius: var(--radius);
+    white-space: pre-wrap; word-break: break-all;
+    max-height: 300px; overflow-y: auto;
+  }
+
+  /* Toast */
+  .toast-container {
+    position: fixed; top: 16px; right: 16px; z-index: 1000;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .toast {
+    padding: 12px 20px; border-radius: var(--radius); color: #fff;
+    font-weight: 500; animation: slideIn 0.2s ease-out;
+    max-width: 400px;
+  }
+  .toast.success { background: var(--success); }
+  .toast.error { background: var(--danger); }
+  .toast.info { background: var(--accent); }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .stats { display: flex; gap: 16px; flex-wrap: wrap; }
+  .stat { font-size: 0.85rem; color: var(--text-secondary); }
+  .stat strong { color: var(--text); }
+
+  .empty-state {
+    text-align: center; padding: 32px; color: var(--text-secondary);
+  }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 2000;
+  }
+  .modal {
+    background: #fff; border-radius: var(--radius);
+    padding: 24px; max-width: 420px; width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  }
+  .modal h3 { font-size: 1.1rem; margin-bottom: 12px; }
+  .modal p { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 20px; }
+  .modal .diff { font-size: 0.8rem; margin-bottom: 16px; color: var(--text-secondary); }
+  .modal .diff span.added { color: var(--success); }
+  .modal .diff span.removed { color: var(--danger); }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+  /* Loading */
+  .loading { text-align: center; padding: 40px; color: var(--text-secondary); }
+  .spinner {
+    display: inline-block; width: 24px; height: 24px;
+    border: 3px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div>
+      <h1>Docker Image Pusher</h1>
+      <p class="subtitle">本地管理 images.txt - 打开页面自动加载，保存前确认</p>
+    </div>
+    <div class="stats">
+      <span class="stat">镜像总数: <strong id="totalCount">0</strong></span>
+      <span class="stat">已启用: <strong id="enabledCount">0</strong></span>
+    </div>
+  </div>
+
+  <!-- File Status Bar -->
+  <div class="card" id="statusBar" style="display:none;">
+    <div class="file-bar">
+      <div class="file-status">
+        <span class="file-dot loaded" id="fileDot"></span>
+        <span id="fileNameDisplay">images.txt</span>
+      </div>
+      <span class="modified-badge" id="modifiedBadge" style="display:none;">有修改</span>
+      <div style="flex:1;"></div>
+      <button class="btn-outline btn-sm" onclick="reloadFile()">刷新</button>
+      <button class="btn-primary btn-sm" onclick="saveFile()" id="saveBtn">保存</button>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p style="margin-top:12px;">正在加载 images.txt ...</p>
+  </div>
+
+  <!-- Error / No Server -->
+  <div class="card" id="noServerMsg" style="display:none;">
+    <div class="empty-state">
+      <p style="font-size:1rem;margin-bottom:12px;">无法自动加载 images.txt</p>
+      <p style="font-size:0.85rem;margin-bottom:16px;">请通过以下方式启动：</p>
+      <code style="background:#1e1e1e;color:#d4d4d4;padding:8px 16px;border-radius:4px;display:inline-block;">
+        ./start.sh
+      </code>
+      <p style="font-size:0.8rem;margin-top:12px;color:var(--text-secondary);">或手动选择文件：</p>
+      <button class="btn-outline btn-sm" onclick="openFilePicker()" style="margin-top:8px;">选择 images.txt</button>
+    </div>
+  </div>
+
+  <!-- Editor (shown when file is loaded) -->
+  <div id="editor" style="display:none;">
+    <!-- Add Form -->
+    <div class="card">
+      <div class="card-header"><h2>添加镜像</h2></div>
+      <div class="add-form">
+        <select id="platformSelect">
+          <option value="">默认架构</option>
+          <option value="linux/amd64">linux/amd64</option>
+          <option value="linux/arm64">linux/arm64</option>
+          <option value="linux/arm/v7">linux/arm/v7</option>
+          <option value="linux/arm/v8">linux/arm/v8</option>
+          <option value="linux/ppc64le">linux/ppc64le</option>
+          <option value="linux/s390x">linux/s390x</option>
+        </select>
+        <input type="text" id="imageInput" placeholder="镜像名:版本号，如 nginx:1.25" autocomplete="off">
+        <input type="text" id="tagInput" placeholder="标签(默认latest)" autocomplete="off">
+        <button class="btn-primary" onclick="addImage()">+ 添加</button>
+      </div>
+    </div>
+
+    <!-- Image List -->
+    <div class="card">
+      <div class="card-header"><h2>镜像列表</h2></div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('all')">全部</div>
+        <div class="tab" onclick="switchTab('enabled')">已启用</div>
+        <div class="tab" onclick="switchTab('commented')">已注释</div>
+      </div>
+      <ul class="image-list" id="imageList"></ul>
+      <div class="empty-state" id="emptyState">暂无镜像</div>
+    </div>
+
+    <!-- Preview -->
+    <div class="card">
+      <div class="card-header">
+        <h2>预览 images.txt</h2>
+        <button class="btn-outline btn-sm" onclick="copyPreview()">复制到剪贴板</button>
+      </div>
+      <div class="preview" id="preview"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Save Confirmation Modal -->
+<div class="modal-overlay" id="saveModal" style="display:none;">
+  <div class="modal">
+    <h3>确认保存到 images.txt ？</h3>
+    <div class="diff">
+      <p>当前共 <strong id="saveModalTotal">0</strong> 个镜像（已启用 <strong id="saveModalEnabled">0</strong> 个）</p>
+      <p id="saveModalChanges" style="margin-top:8px;"></p>
+    </div>
+    <p style="font-size:0.8rem;color:var(--text-secondary);">
+      保存后将写入 images.txt 并执行 <code>git commit</code>。<br>push 后 GitHub Action 会自动触发。
+    </p>
+    <div class="modal-actions">
+      <button class="btn-outline" onclick="closeSaveModal()">取消</button>
+      <button class="btn-primary" onclick="confirmSave()">确认保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+let images = [];
+let currentTab = 'all';
+let fileHandle = null;
+let savedContent = '';
+let isModified = false;
+
+// ---- Toast ----
+function toast(msg, type) {
+  const container = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => { el.remove(); }, 3000);
+}
+
+// ---- Auto-load images.txt via fetch ----
+async function autoLoad() {
+  try {
+    const resp = await fetch('images.txt', { cache: 'no-store' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const content = await resp.text();
+    savedContent = content;
+    parseImages(content);
+    showEditor();
+    updateFileStatus('loaded');
+    toast('已自动加载 images.txt', 'success');
+  } catch (e) {
+    // fetch failed (not served via HTTP), auto-trigger file picker
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('noServerMsg').style.display = 'block';
+    // Auto-open file picker so user doesn't need to click twice
+    setTimeout(() => openFilePicker(), 300);
+  }
+}
+
+function reloadFile() {
+  if (isModified) {
+    if (!confirm('当前有未保存的修改，刷新将丢失修改。确定刷新？')) return;
+  }
+  autoLoad();
+}
+
+// ---- File Picker (fallback) ----
+async function openFilePicker() {
+  if ('showOpenFilePicker' in window) {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: 'Text Files', accept: { 'text/plain': ['.txt'] } }],
+        suggestedName: 'images.txt',
+      });
+      fileHandle = handle;
+      const file = await handle.getFile();
+      const content = await file.text();
+      savedContent = content;
+      parseImages(content);
+      showEditor();
+      updateFileStatus('loaded');
+      document.getElementById('fileNameDisplay').textContent = handle.name;
+      document.getElementById('noServerMsg').style.display = 'none';
+      document.getElementById('loading').style.display = 'none';
+      toast('已打开: ' + handle.name, 'success');
+      return;
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        toast('打开文件失败: ' + e.message, 'error');
+      }
+      return;
+    }
+  }
+
+  // Legacy fallback: hidden file input
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.txt';
+  input.onchange = async function() {
+    const file = this.files[0];
+    if (!file) return;
+    const content = await file.text();
+    savedContent = content;
+    fileHandle = null;
+    parseImages(content);
+    showEditor();
+    updateFileStatus('loaded');
+    document.getElementById('fileNameDisplay').textContent = file.name;
+    document.getElementById('noServerMsg').style.display = 'none';
+    document.getElementById('loading').style.display = 'none';
+    toast('已打开: ' + file.name, 'success');
+  };
+  input.click();
+}
+
+// ---- Save ----
+function saveFile() {
+  const content = generateContent();
+  if (content === savedContent) {
+    toast('没有修改，无需保存', 'info');
+    return;
+  }
+
+  // Show confirmation modal
+  const enabled = images.filter(i => i.type === 'image').length;
+  const total = images.filter(i => i.type === 'image' || i.type === 'comment').length;
+  document.getElementById('saveModalTotal').textContent = total;
+  document.getElementById('saveModalEnabled').textContent = enabled;
+
+  // Compute diff summary
+  const oldLines = savedContent.trim().split('\n').filter(l => l.trim() && !l.trim().startsWith('#')).length;
+  const newLines = content.trim().split('\n').filter(l => l.trim() && !l.trim().startsWith('#')).length;
+  const diff = newLines - oldLines;
+  let changesHtml = '';
+  if (diff > 0) {
+    changesHtml = '镜像行数: ' + oldLines + ' → ' + newLines + ' <span class="added">(+' + diff + ')</span>';
+  } else if (diff < 0) {
+    changesHtml = '镜像行数: ' + oldLines + ' → ' + newLines + ' <span class="removed">(' + diff + ')</span>';
+  } else {
+    changesHtml = '镜像行数: ' + oldLines + '（不变）';
+  }
+  document.getElementById('saveModalChanges').innerHTML = changesHtml;
+  document.getElementById('saveModal').style.display = 'flex';
+}
+
+function closeSaveModal() {
+  document.getElementById('saveModal').style.display = 'none';
+}
+
+async function confirmSave() {
+  closeSaveModal();
+  const content = generateContent();
+
+  if (fileHandle) {
+    try {
+      const writable = await fileHandle.createWritable();
+      await writable.write(content);
+      await writable.close();
+      savedContent = content;
+      isModified = false;
+      updateFileStatus('loaded');
+      toast('已保存到 ' + (fileHandle.name || 'images.txt'), 'success');
+      return;
+    } catch (e) {
+      toast('保存失败: ' + e.message, 'error');
+      return;
+    }
+  }
+
+  // fetch-based save: POST to a tiny save endpoint
+  try {
+    const resp = await fetch('/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: content }),
+    });
+    if (resp.ok) {
+      savedContent = content;
+      isModified = false;
+      updateFileStatus('loaded');
+      toast('已保存到 images.txt', 'success');
+    } else {
+      const err = await resp.json();
+      throw new Error(err.error || '保存失败');
+    }
+  } catch (e) {
+    // Server doesn't support /save endpoint, fallback to download
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'images.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+    savedContent = content;
+    isModified = false;
+    updateFileStatus('loaded');
+    toast('已下载 images.txt（请手动覆盖原文件）', 'info');
+  }
+}
+
+// ---- File Status ----
+function updateFileStatus(status) {
+  const dot = document.getElementById('fileDot');
+  dot.className = 'file-dot ' + status;
+  const badge = document.getElementById('modifiedBadge');
+  if (status === 'modified') {
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function markModified() {
+  if (!isModified) {
+    isModified = true;
+    updateFileStatus('modified');
+  }
+}
+
+// ---- Image Parsing ----
+function parseImages(content) {
+  images = [];
+  const lines = content.split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const commentMatch = trimmed.match(/^#\s*(.*)/);
+    if (commentMatch) {
+      images.push({ raw: line, type: 'comment', value: commentMatch[1] });
+      continue;
+    }
+    const platformMatch = trimmed.match(/^--platform\s+(\S+)\s+(.+)/);
+    if (platformMatch) {
+      images.push({ raw: line, type: 'image', platform: platformMatch[1], image: platformMatch[2] });
+    } else {
+      images.push({ raw: line, type: 'image', platform: '', image: trimmed });
+    }
+  }
+  render();
+}
+
+function generateContent() {
+  const lines = [];
+  for (const img of images) {
+    if (img.type === 'comment') {
+      lines.push('# ' + img.value);
+    } else if (img.type === 'image') {
+      if (img.platform) {
+        lines.push('--platform ' + img.platform + ' ' + img.image);
+      } else {
+        lines.push(img.image);
+      }
+    }
+  }
+  return lines.join('\n') + '\n';
+}
+
+// ---- Image CRUD ----
+function addImage() {
+  const platform = document.getElementById('platformSelect').value;
+  const imageInput = document.getElementById('imageInput').value.trim();
+  let tagInput = document.getElementById('tagInput').value.trim();
+
+  if (!imageInput) return toast('请输入镜像名', 'error');
+
+  let imageName = imageInput;
+  if (tagInput) {
+    if (imageInput.includes(':')) {
+      toast('镜像名已包含标签，忽略输入的标签', 'info');
+    } else {
+      imageName = imageInput + ':' + tagInput;
+    }
+  }
+
+  images.push({ type: 'image', platform: platform, image: imageName, raw: '' });
+  document.getElementById('imageInput').value = '';
+  document.getElementById('tagInput').value = '';
+  document.getElementById('platformSelect').value = '';
+  markModified();
+  render();
+  toast('已添加: ' + (platform ? '--platform ' + platform + ' ' : '') + imageName, 'success');
+}
+
+function removeImage(index) {
+  images.splice(index, 1);
+  markModified();
+  render();
+  toast('已删除', 'info');
+}
+
+function toggleComment(index) {
+  const img = images[index];
+  if (img.type === 'comment') {
+    const inner = img.value;
+    const platformMatch = inner.match(/^--platform\s+(\S+)\s+(.+)/);
+    if (platformMatch) {
+      images[index] = { type: 'image', platform: platformMatch[1], image: platformMatch[2], raw: '' };
+    } else {
+      images[index] = { type: 'image', platform: '', image: inner, raw: '' };
+    }
+  } else if (img.type === 'image') {
+    const line = img.platform ? '--platform ' + img.platform + ' ' + img.image : img.image;
+    images[index] = { type: 'comment', value: line, raw: '' };
+  }
+  markModified();
+  render();
+}
+
+// ---- Rendering ----
+function render() {
+  updateStats();
+  renderList();
+  updatePreview();
+}
+
+function updateStats() {
+  const enabled = images.filter(i => i.type === 'image').length;
+  const total = images.filter(i => i.type === 'image' || i.type === 'comment').length;
+  document.getElementById('totalCount').textContent = total;
+  document.getElementById('enabledCount').textContent = enabled;
+}
+
+function getFilteredImages() {
+  if (currentTab === 'enabled') {
+    return images.map((img, i) => ({ img, idx: i })).filter(({ img }) => img.type === 'image');
+  } else if (currentTab === 'commented') {
+    return images.map((img, i) => ({ img, idx: i })).filter(({ img }) => img.type === 'comment');
+  }
+  return images.map((img, i) => ({ img, idx: i }));
+}
+
+function renderList() {
+  const list = document.getElementById('imageList');
+  const empty = document.getElementById('emptyState');
+  const filtered = getFilteredImages();
+
+  if (filtered.length === 0) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  list.innerHTML = filtered.map(({ img, idx }) => {
+    if (img.type === 'comment') {
+      return '<li class="image-item commented">' +
+        '<span class="image-index">' + (idx + 1) + '</span>' +
+        '<span class="image-name"># ' + escapeHtml(img.value) + '</span>' +
+        '<div class="image-actions">' +
+          '<button class="btn-outline btn-xs" onclick="toggleComment(' + idx + ')">启用</button>' +
+          '<button class="btn-danger btn-xs" onclick="removeImage(' + idx + ')">删除</button>' +
+        '</div></li>';
+    }
+    let platformHtml = '';
+    if (img.platform) {
+      platformHtml = '<span class="image-platform">' + escapeHtml(img.platform) + '</span>';
+    }
+    return '<li class="image-item">' +
+      '<span class="image-index">' + (idx + 1) + '</span>' +
+      platformHtml +
+      '<span class="image-name">' + escapeHtml(img.image) + '</span>' +
+      '<div class="image-actions">' +
+        '<button class="btn-outline btn-xs" onclick="toggleComment(' + idx + ')">注释</button>' +
+        '<button class="btn-danger btn-xs" onclick="removeImage(' + idx + ')">删除</button>' +
+      '</div></li>';
+  }).join('');
+}
+
+function updatePreview() {
+  document.getElementById('preview').textContent = generateContent();
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', ['all', 'enabled', 'commented'][i] === tab);
+  });
+  renderList();
+}
+
+function copyPreview() {
+  navigator.clipboard.writeText(generateContent()).then(
+    () => toast('已复制到剪贴板', 'success'),
+    () => toast('复制失败', 'error')
+  );
+}
+
+function escapeHtml(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+function showEditor() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('noServerMsg').style.display = 'none';
+  document.getElementById('statusBar').style.display = 'block';
+  document.getElementById('editor').style.display = 'block';
+}
+
+// ---- Page unload warning ----
+window.addEventListener('beforeunload', function(e) {
+  if (isModified) {
+    e.preventDefault();
+    e.returnValue = '有未保存的修改，确定离开？';
+    return e.returnValue;
+  }
+});
+
+// ---- Init ----
+document.getElementById('imageInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') addImage();
+});
+document.getElementById('tagInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') addImage();
+});
+
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    saveFile();
+  }
+});
+
+// Try auto-load images.txt from same directory
+autoLoad();
+
+render();
+</script>
+</body>
+</html>
